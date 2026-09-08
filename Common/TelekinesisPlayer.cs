@@ -24,6 +24,12 @@ public sealed class TelekinesisPlayer : ModPlayer
     private const int ReturnDelayTicks = 36;
     private const int ArtificialTileRange = 200;
 
+    // TileReachCheckSettings.Simple clamps its reach to 20 tiles no matter how large tileRangeX/Y
+    // are, and that setting is what gates opening a chest. Using the same 20 here for the chest
+    // window keeps opening and closing symmetric: a chest that can no longer be opened at this
+    // distance also does not stay open at it.
+    private const int ChestTileRange = 20;
+
     public Vector2 GripPosition { get; private set; }
     public Vector2 GripTarget { get; private set; }
     public GripMode Mode { get; private set; }
@@ -244,38 +250,62 @@ public sealed class TelekinesisPlayer : ModPlayer
     // so telekinetic chest reach is expressed the same way tool reach already is: the chest counts
     // as in range when some reachable grip position exists within normal tile range of it.
     //
-    // Player.Update runs PostUpdateRunSpeeds, then LookForTileInteractions (which opens a chest and
-    // re-checks the open one), then PreUpdateMovement, and only after that item use. Opening the
-    // inflated range here and closing it in PreUpdateMovement therefore brackets exactly the
-    // vanilla tile interaction pass and leaves item use reading the real range.
+    // Opening and closing are separate vanilla passes at different points in Player.Update, and
+    // ResetEffects sits between them and resets tileRangeX/Y back to their base values:
+    //
+    //   PreUpdate -> HandleBeingInChestRange (closes an out-of-range open chest)
+    //             -> ResetEffects (tileRangeX/Y = base)
+    //             -> PostUpdateRunSpeeds -> LookForTileInteractions (opens a chest)
+    //             -> PreUpdateMovement -> item use
+    //
+    // The extended range therefore has to be applied on both sides of ResetEffects, and is dropped
+    // again in PreUpdateMovement so item use keeps reading the real range.
+    public override void PreUpdate()
+    {
+        ApplyTelekineticChestRange();
+    }
+
     public override void PostUpdateRunSpeeds()
     {
-        UpdateTelekineticChestRange();
+        ApplyTelekineticChestRange();
     }
 
     public override void PreUpdateMovement()
     {
-        if (_restoreChestTileRange) {
-            Player.tileRangeX = _savedChestTileRangeX;
-            Player.tileRangeY = _savedChestTileRangeY;
-            _restoreChestTileRange = false;
-        }
+        RestoreChestTileRange();
     }
 
-    private void UpdateTelekineticChestRange()
+    private void ApplyTelekineticChestRange()
     {
         if (Player.whoAmI != Main.myPlayer || Main.netMode != NetmodeID.SinglePlayer)
             return;
 
-        if (!RemoteControlEnabled || !IsTelekineticChestTargetAuthorized())
+        if (!RemoteControlEnabled || !IsTelekineticChestTargetAuthorized()) {
+            RestoreChestTileRange();
+            return;
+        }
+
+        // Only the first application of a tick captures the base range. The second one runs after
+        // ResetEffects has already rewritten the same base value, so re-capturing would be a no-op
+        // at best and would capture an inflated value if vanilla's reset ever moved.
+        if (!_restoreChestTileRange) {
+            _savedChestTileRangeX = Player.tileRangeX;
+            _savedChestTileRangeY = Player.tileRangeY;
+            _restoreChestTileRange = true;
+        }
+
+        Player.tileRangeX = ChestTileRange;
+        Player.tileRangeY = ChestTileRange;
+    }
+
+    private void RestoreChestTileRange()
+    {
+        if (!_restoreChestTileRange)
             return;
 
-        _savedChestTileRangeX = Player.tileRangeX;
-        _savedChestTileRangeY = Player.tileRangeY;
-        _restoreChestTileRange = true;
-
-        Player.tileRangeX = ArtificialTileRange;
-        Player.tileRangeY = ArtificialTileRange;
+        Player.tileRangeX = _savedChestTileRangeX;
+        Player.tileRangeY = _savedChestTileRangeY;
+        _restoreChestTileRange = false;
     }
 
     private bool IsTelekineticChestTargetAuthorized()
