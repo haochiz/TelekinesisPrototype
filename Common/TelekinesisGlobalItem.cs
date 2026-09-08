@@ -83,7 +83,7 @@ public sealed class TelekinesisGlobalItem : GlobalItem
 
         // Preserve vanilla-like wall blocking, but anchor it at the telekinetic hand. A sword can
         // hit an NPC beside a wall from the open side, but cannot attack through solid terrain.
-        Vector2 gripCheckPosition = tk.GripPosition - new Vector2(2f, 2f);
+        Vector2 gripCheckPosition = tk.MeleeObstructionOrigin - new Vector2(2f, 2f);
         bool canHitFromGrip = Collision.CanHit(
             gripCheckPosition,
             4,

@@ -18,6 +18,7 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
     private int _knockbackDirection;
 
     private bool _remoteSteerableExplosive;
+    private bool _remoteExplosiveSteeringEnded;
     private const float RemoteExplosiveSpeed = 10f;
     private const float RemoteExplosiveAcceleration = 0.85f;
 
@@ -60,17 +61,26 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
             }
         }
 
-        if (!_remoteSteerableExplosive || projectile.owner != Main.myPlayer)
+        if (!_remoteSteerableExplosive || _remoteExplosiveSteeringEnded || projectile.owner != Main.myPlayer)
             return;
+
+        // Steering belongs only to the single uninterrupted left-click hold that threw this
+        // explosive. Use the raw physical left-button state rather than Player.controlUseItem,
+        // which Terraria may temporarily clear during an item-use cycle even while the button is
+        // still held. MouseLeft is a global button state, so the release is latched permanently:
+        // without that latch, any later unrelated click (swinging a sword, using another item)
+        // would resume steering a bomb that had already returned to vanilla ballistic motion.
+        if (!PlayerInput.Triggers.Current.MouseLeft) {
+            _remoteExplosiveSteeringEnded = true;
+            return;
+        }
 
         Player explosiveOwner = Main.player[projectile.owner];
         TelekinesisPlayer explosiveTk = explosiveOwner.GetModPlayer<TelekinesisPlayer>();
 
         // Only steering changes. Vanilla explosive AI, collisions, timeLeft, and explosion timing
-        // continue to run normally. Use the raw physical left-button state rather than
-        // Player.controlUseItem: Terraria may temporarily clear the processed item-use flag during
-        // an item-use cycle even while left click is still physically held.
-        if (!explosiveTk.RemoteControlEnabled || !PlayerInput.Triggers.Current.MouseLeft)
+        // continue to run normally.
+        if (!explosiveTk.RemoteControlEnabled)
             return;
 
         Vector2 toCursor = Main.MouseWorld - projectile.Center;

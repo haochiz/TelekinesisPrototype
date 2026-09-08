@@ -250,6 +250,14 @@ public sealed class TelekinesisPlayer : ModPlayer
                (TelekinesisItemRules.IsBasicMelee(item) || TelekinesisItemRules.IsTool(item));
     }
 
+    // The remote hitbox and the visible swing stay exactly at the cursor, even when the cursor is
+    // inside the tile being mined. Wall blocking cannot be probed from inside solid terrain, so it
+    // is anchored at the open point the tile operation was already authorized from.
+    public Vector2 MeleeObstructionOrigin =>
+        _hasTileOperationGrip && Collision.IsWorldPointSolid(GripPosition, true)
+            ? _tileOperationGrip
+            : GripPosition;
+
     public void TemporarilyBypassPhysicalBroadswordTileCheck(NPC target)
     {
         if (!_remoteBroadswordTileCollisionOverrides.ContainsKey(target.whoAmI))
