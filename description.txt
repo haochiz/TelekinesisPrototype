@@ -1,0 +1,20 @@
+Single-player prototype for a telekinetic Terraria character.
+
+Prototype scope:
+- Toggleable telekinetic remote control (default G) with HUD state indicator
+- Toggleable HP-scaled levitation (default Left Shift); duration is the only progression variable and recharges while OFF
+- Remote steering for thrown Bombs and Grenades while item-use is held
+- Remote ordinary swinging melee weapons with grip/swing-derived collision
+- Remote ordinary shortswords
+- Remote pickaxes, axes, and hammers; tile effects are independent from melee collision
+- Remote tile/wall placement
+- Remote operation based on connected open space inside the visible screen area
+- Physical deploy/follow/return motion
+- Large fixed vanilla pickup range (60 tiles), with no pickup pathfinding
+
+Intentionally not included yet:
+- Spears/lances
+- Terragrim
+- Other projectile/special swords
+- Yoyos, boomerangs, flails
+- Multiplayer synchronization

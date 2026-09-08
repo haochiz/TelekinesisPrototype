@@ -1,0 +1,5 @@
+Keybinds: {
+	ManipulateEnemy.DisplayName: Manipulate Enemy
+	ToggleLevitation.DisplayName: Toggle Levitation
+	ToggleRemoteControl.DisplayName: Toggle Remote Control
+}
