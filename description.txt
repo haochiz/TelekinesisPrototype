@@ -1,20 +1,26 @@
-Single-player prototype for a telekinetic Terraria character.
+Single-player prototype for a telekinetic Terraria character. The fantasy is remotely
+operating ordinary physical objects, not replacing combat with generic magic attacks.
 
 Prototype scope:
-- Toggleable telekinetic remote control (default G) with HUD state indicator
-- Toggleable HP-scaled levitation (default Left Shift); duration is the only progression variable and recharges while OFF
-- Remote steering for thrown Bombs and Grenades while item-use is held
-- Remote ordinary swinging melee weapons with grip/swing-derived collision
-- Remote ordinary shortswords
+- Toggleable telekinetic remote control (default G) with a compact HUD status strip
+- Remote grip has finite travel speed and must physically reach the cursor
+- Remote ordinary swinging/thrusting melee with grip-derived swing collision
+- Remote shortswords, spears, and lances
+- Projectile-emitting melee (Ice Blade, Enchanted Sword) fires from the grip and auto-aims
+  at the nearest visible enemy
 - Remote pickaxes, axes, and hammers; tile effects are independent from melee collision
 - Remote tile/wall placement
 - Remote operation based on connected open space inside the visible screen area
-- Physical deploy/follow/return motion
+- Cursor-steered thrown consumable explosives while the throwing click is held
+- Hold-to-levitate self-flight (default Left Shift), becoming a toggle once duration is infinite
+- Hold-to-grab enemy manipulation (default V), sharing one charge pool with levitation
+- Duration is the only progression variable; it scales with permanent max HP and recharges
+  while sustained telekinesis is not in use
 - Large fixed vanilla pickup range (60 tiles), with no pickup pathfinding
 
-Intentionally not included yet:
-- Spears/lances
-- Terragrim
-- Other projectile/special swords
+Intentionally not included:
 - Yoyos, boomerangs, flails
+- Drills and chainsaws
+- Terragrim and other unusual special swords
+- Launcher ammunition as steerable explosives
 - Multiplayer synchronization

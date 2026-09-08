@@ -1,28 +1,39 @@
-# Telekinesis Prototype v0.1.7
+# Telekinesis Prototype
 
-Single-player prototype for the telekinetic character. This source was not compiled or run by the authoring environment.
+Single-player prototype for the telekinetic character. This source is not compiled or run by the authoring environment.
 
-## v0.1.0: levitation
+Current version is in `build.txt`; per-version history is in `CHANGELOG.md`.
 
-Levitation is now included as a separate innate movement ability.
+The core fantasy is remotely operating ordinary physical objects rather than replacing Terraria combat with generic magic attacks. A remote weapon behaves as though an invisible hand is physically holding it at the cursor: real swing/thrust geometry matters, the cursor is a grip and pivot rather than an auto-hit point, and the physical player's position does not determine remote melee collision.
+
+## Levitation
+
+Levitation is an innate movement ability on **Left Shift** (rebindable in tModLoader Controls).
 
 ### Controls
 
-- **Left Shift** toggles levitation ON/OFF by default. It is rebindable in tModLoader Controls.
-- Levitation is a toggle, not a hold action.
-- While levitation is ON:
-  - **Up or Jump** rises.
-  - **Down** descends.
-  - no vertical input automatically brakes vertical velocity toward a hover.
-  - **Left/Right** use levitation's own fixed horizontal acceleration and speed cap.
-  - releasing horizontal input brakes toward a stationary hover.
-- Left Shift normally activates vanilla Smart Select. While Left Shift is assigned to levitation and being pressed, levitation takes priority and Smart Select is suppressed for that press.
+- While duration is finite, Left Shift is **hold-to-levitate**. Releasing it ends levitation and allows the shared charge to recharge. If the charge is exhausted while Shift is still held, levitation stays locked out until Shift is released.
+- At 490+ permanent max HP, where duration is infinite, Left Shift becomes a **toggle**: press to turn on, press again to turn off. Crossing into infinite duration while already levitating preserves the current ON state.
+- While levitating:
+  - **Up or Jump** rises, **Down** descends.
+  - **Left/Right** use levitation's own acceleration and speed cap.
+  - Releasing input holds position. Levitation is true suspension, not glide: no input means no falling and no drifting.
+- Activating levitation during a jump or fall does not erase existing momentum; it transitions using levitation's own acceleration.
+- Left Shift normally activates vanilla Smart Select. While Left Shift is assigned to levitation, levitation takes priority and Smart Select is suppressed.
+- Levitation neither drains nor applies while mounted.
+
+### Movement tuning
+
+- Horizontal acceleration **0.20 px/tick²**, top speed **48 tiles/s**.
+- Vertical acceleration **0.80 px/tick²**, top speed **22.5 tiles/s** (6 px/tick).
+- One single vertical acceleration value covers ordinary acceleration, braking, and reversing momentum.
+- Levitation owns horizontal movement and does not inherit walking, sprint, boots, or wing movement stats.
 
 ### HP progression
 
-**Duration is the only stat that scales with permanent max HP.** Acceleration/control are fixed at every stage.
+**Duration is the only stat that scales with permanent max HP.** Acceleration and control are fixed at every stage.
 
-Finite duration now uses one smooth exponential formula for the entire finite HP range:
+Finite duration uses one smooth exponential formula for the entire finite HP range:
 
 `seconds = 30 ^ ((permanentMaxHP - 100) / 385)`
 
@@ -41,52 +52,88 @@ Finite duration now uses one smooth exponential formula for the entire finite HP
 
 The curve is continuously convex: duration rises faster and faster with HP without any internal breakpoint or formula change. 485-489 is capped at 30 seconds, then 490 HP unlocks infinite sustained telekinesis.
 
-Finite levitation now behaves as a rechargeable resource:
+Only permanent max HP counts. Accessory and buff health modifiers do not change innate duration.
 
-- while levitation is **ON**, remaining time drains continuously;
-- while levitation is **OFF**, it recharges at **1 second of levitation per 1 second OFF**;
-- recharge does **not** require touching the ground, so running, falling, boots, wings, mounts, etc. can coexist with recharge as long as levitation itself is toggled OFF;
-- touching the ground does not instantly refill the resource;
-- if the timer reaches zero, levitation switches OFF and immediately begins recharging.
+Finite duration behaves as a rechargeable resource:
 
-Eating a Life Crystal/Fruit still grants the additional capacity unlocked by the new permanent max HP without erasing already-spent duration.
+- it drains continuously while sustained telekinesis is in use;
+- it recharges at **1 second per 1 second not in use**;
+- recharge does **not** require touching the ground, so running, falling, boots, wings, and mounts can coexist with recharge;
+- touching the ground does not instantly refill the resource.
 
-The HUD shows `TK LEVITATE: ON/OFF`, the assigned key, and remaining duration (`INF` at 490 HP).
+Eating a Life Crystal/Fruit grants the additional capacity unlocked by the new permanent max HP without erasing already-spent duration.
 
-While levitation is ON, it owns horizontal movement as well as vertical movement. Horizontal acceleration and top speed are fixed and do not inherit walking/sprint/boots/wing movement stats. Current playtest values are **0.35 px/tick² acceleration** and **55 tiles/s maximum horizontal speed**.
-
-## Existing remote-control system
+## Remote control
 
 - **G** toggles telekinetic remote item control ON/OFF (rebindable).
-- Remote OFF gives completely vanilla weapon/tool/placement behavior.
-- Remote melee collision is generated from the remote grip and swing, independent of the physical player.
-- Tool tile effects are independent of melee collision: the selected tile can be mined/chopped/hammered from a valid nearby remote operation point while the tool's actual melee swing remains centered on the cursor grip.
-- Telekinetic connectivity is evaluated through open space inside the currently visible screen area.
-- Pickup uses a fixed 60-tile vanilla grab range with no pathfinding.
+- Remote OFF gives completely vanilla weapon/tool/placement behavior, and is the reliable fallback for unsupported or unusual items.
+- The remote grip has finite travel speed and must move from the player to the cursor.
+- Remote melee collision is generated from the remote grip and the current swing rotation, independent of the physical player. Wall blocking is anchored at the grip, so an enemy pressed against terrain can still be hit from the open side.
+
+### Supported remotely
+
+- Ordinary swinging and thrusting melee (broadswords and similar).
+- Melee weapons that also emit projectiles (Ice Blade, Enchanted Sword). The projectile is relocated to the grip and auto-aimed at the nearest visible enemy, preserving vanilla speed and any intentional spread or multishot.
+- Shortswords, which are projectile-based and use custom remote thrust handling.
+- Spears and lances, which retain vanilla spear AI, timing, and reach, with the completed pose translated to the grip and owner line-of-sight replaced by grip-to-target.
+- Pickaxes, axes, and hammers. Tool tile effects and tool melee damage are deliberately separate systems: the tool always swings at the cursor, while mining/chopping/hammering is authorized from a reachable operation point within the item's normal tile interaction range.
+- Tile and wall placement.
+
+### Reachability
+
+Telekinetic reachability is **connected open space within the visible screen area**, not strict line of sight. The remote hand can travel around corners through connected open space. If the only route leaves the visible region and returns, it does not count, and sealed or disconnected regions remain inaccessible.
+
+- Weapons require the exact grip/cursor position to be reachable.
+- Tools and placement require only that some reachable grip position exists within the item's normal local tile interaction range of the target.
+
+Wiring tools, paint tools, and buckets keep their vanilla player-relative range.
+
+### Explosives
+
+While remote control is ON, thrown consumable explosives can be steered toward the cursor for as long as the left-click hold that threw them is maintained. Releasing left click permanently returns that projectile to vanilla ballistic motion. Only velocity is modified; fuse and explosion timing remain vanilla. Launcher ammunition such as rockets is not steered.
+
+### Pickup
+
+Pickup uses a fixed 60-tile (960 px) vanilla grab range with no line of sight or pathfinding, and vanilla item attraction handles the actual movement. This convenience feature is independent of the G remote toggle.
+
+## Enemy manipulation
+
+- **V** is hold-to-use (rebindable).
+- Hold V with the cursor over a valid hostile NPC to grab it. The target stays selected while V is held, and moving the cursor telekinetically accelerates the NPC toward it. Releasing V releases the target.
+- Enemy AI remains active: telekinesis modifies velocity rather than hard-setting position.
+- Acceleration scales with the NPC's knockback susceptibility. Knockback-immune enemies cannot be manipulated.
+- Enemy manipulation and self-levitation share the **same** sustained-use charge pool. Using both at once still drains it at one tick per tick, not twice as fast.
+
+## HUD
+
+A single compact status strip is anchored at the bottom-right, away from the inventory, chests, buffs, minimap, chat, and boss bars. It shows remote control state, levitation state and remaining duration (`INF` at 490+ HP), and enemy manipulation state, each with its assigned key.
 
 ## Commands
 
 - `/tkday` — set the world to noon.
 - `/tktest` — grant representative swords, a shortsword, Spear, Trident, Jousting Lance, tools, building materials, and a Target Dummy.
 - `/tkexplosives` — grant one Bomb and one Grenade for steering tests.
+- `/tkextractinator` — grant one Extractinator.
 
 ## Suggested levitation tests
 
 1. Fresh 100-HP character: verify a full charge is ~1.0 second.
-2. Spend part of the charge, toggle levitation OFF in midair, and verify the HUD recharges gradually rather than instantly.
-3. Land with levitation OFF and verify landing itself does not instantly refill the resource.
-4. Run/use boots or wings with levitation OFF and verify recharge continues.
-5. Toggle levitation ON while grounded and verify the finite resource still drains while ON.
+2. Spend part of the charge, release Shift in midair, and verify the HUD recharges gradually rather than instantly.
+3. Land with levitation off and verify landing itself does not instantly refill the resource.
+4. Run/use boots or wings with levitation off and verify recharge continues.
+5. Exhaust the charge while holding Shift and verify levitation stays locked out until Shift is released.
 6. Check the smooth duration progression as max HP increases: 150≈1.6s, 200≈2.4s, 250≈3.8s, 300≈5.9s, 350≈9.1s, 400≈14.2s, 450≈22.0s, 485≈30s.
-7. At 490 permanent max HP, verify the HUD says `INF` and levitation no longer expires.
-8. Verify Left Shift still toggles levitation without also activating Smart Select.
-9. Verify G remote-control mode and Bomb/Grenade steering remain unchanged.
+7. At 490 permanent max HP, verify the HUD says `INF`, levitation no longer expires, and Left Shift behaves as a toggle rather than hold-to-use.
+8. Verify Left Shift still controls levitation without also activating Smart Select.
+9. Activate levitation mid-jump and mid-fall and verify momentum transitions rather than vanishing instantly.
+10. Levitate and manipulate an enemy simultaneously and verify the shared pool drains at the normal rate.
 
-## Still intentionally excluded
+## Intentionally excluded
 
-- Terragrim
-- Other projectile/special swords
 - Yoyos
 - Boomerangs
 - Flails
+- Drills and chainsaws
+- Terragrim and other unusual special swords
+- Launcher ammunition as steerable explosives
 - Multiplayer
