@@ -156,3 +156,9 @@ When a normal vanilla Bomb or Grenade is thrown while `TK REMOTE` is ON, keep it
 - Steering now belongs only to the uninterrupted left-click hold that threw the explosive. Releasing left click permanently returns that projectile to vanilla ballistic motion.
 - This stops an already-released bomb from resuming steering on a later unrelated click, and stops in-flight bombs from being steered while an unrelated weapon is being swung.
 - Fuse/explosion timing, collisions, and vanilla explosive AI are unchanged.
+
+## v0.1.14.14 optimization
+
+- Reachability rebuilds no longer re-probe the same solid tile once per adjacent open tile. Each tile's solidity is now tested at most once per rebuild.
+- The flood-fill queue is reused instead of being allocated on every rebuild.
+- No gameplay change: the reachable region, the visible-screen boundary, and rebuild frequency are all unchanged.

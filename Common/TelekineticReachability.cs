@@ -17,9 +17,18 @@ internal sealed class TelekineticReachability
         new(0, -1)
     };
 
+    private const byte PassabilityUntested = 0;
+    private const byte PassabilityPassable = 1;
+    private const byte PassabilityBlocked = 2;
+
     private Rectangle _bounds;
     private bool[] _reachable = Array.Empty<bool>();
     private int[] _parent = Array.Empty<int>();
+
+    // Scratch state reused across rebuilds so a rebuild allocates nothing. _passability caches
+    // the solidity probe for each tile within a single rebuild.
+    private byte[] _passability = Array.Empty<byte>();
+    private readonly Queue<Point> _floodQueue = new();
     private Point _rootTile;
     private bool _initialized;
     private ulong _lastRefreshTick;
@@ -154,9 +163,11 @@ internal sealed class TelekineticReachability
         if (_reachable.Length != count) {
             _reachable = new bool[count];
             _parent = new int[count];
+            _passability = new byte[count];
         }
         else {
             Array.Clear(_reachable, 0, _reachable.Length);
+            Array.Clear(_passability, 0, _passability.Length);
         }
 
         Array.Fill(_parent, -1);
@@ -164,13 +175,13 @@ internal sealed class TelekineticReachability
         if (!Contains(_rootTile))
             return;
 
-        Queue<Point> queue = new();
+        _floodQueue.Clear();
         int rootIndex = LocalIndex(_rootTile.X, _rootTile.Y);
         _reachable[rootIndex] = true;
-        queue.Enqueue(_rootTile);
+        _floodQueue.Enqueue(_rootTile);
 
-        while (queue.Count > 0) {
-            Point current = queue.Dequeue();
+        while (_floodQueue.Count > 0) {
+            Point current = _floodQueue.Dequeue();
             int currentIndex = LocalIndex(current.X, current.Y);
 
             foreach (Point step in Neighbors) {
@@ -184,12 +195,12 @@ internal sealed class TelekineticReachability
                 if (_reachable[nextIndex])
                     continue;
 
-                if (!IsPassable(nx, ny))
+                if (!IsPassableCached(nextIndex, nx, ny))
                     continue;
 
                 _reachable[nextIndex] = true;
                 _parent[nextIndex] = currentIndex;
-                queue.Enqueue(new Point(nx, ny));
+                _floodQueue.Enqueue(new Point(nx, ny));
             }
         }
     }
@@ -252,6 +263,18 @@ internal sealed class TelekineticReachability
         }
 
         return smooth;
+    }
+
+    private bool IsPassableCached(int index, int tileX, int tileY)
+    {
+        byte state = _passability[index];
+
+        if (state == PassabilityUntested) {
+            state = IsPassable(tileX, tileY) ? PassabilityPassable : PassabilityBlocked;
+            _passability[index] = state;
+        }
+
+        return state == PassabilityPassable;
     }
 
     private bool IsReachable(int tileX, int tileY)
