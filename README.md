@@ -75,6 +75,9 @@ Eating a Life Crystal/Fruit grants the additional capacity unlocked by the new p
 - Ordinary swinging and thrusting melee (broadswords and similar).
 - Melee weapons that also emit projectiles (Ice Blade, Enchanted Sword). The projectile is relocated to the grip and auto-aimed at the nearest visible enemy, preserving vanilla speed and any intentional spread or multishot.
 - Shortswords, which are projectile-based and use custom remote thrust handling.
+- Terragrim (and Arkhalis), which are held projectiles. Vanilla AI still owns the spin animation and timing; the finished pose is translated to the grip, owner line-of-sight is replaced by grip-to-target, and the blade auto-aims at the nearest enemy within 25 tiles of the grip, falling back to the cursor direction.
+- Sky-strike melee such as Starfury and Star Wrath. These aim at a *point* rather than along a line, so the whole vanilla spawn is shifted by cursor-to-target: fall angle, speed, and multi-star spread are unchanged, and the stars land on the nearest visible enemy instead of the cursor. Line-of-sight is not required, because vanilla stars already fall through terrain.
+- Bullet guns, fired from the grip and auto-aimed at the nearest visible enemy, with the visible weapon rotated to match. Bows are deliberately excluded: drawing a bow remotely does not fit the fantasy, while a grip is a plausibly *more* stable firing platform for a gun.
 - Spears and lances, which retain vanilla spear AI, timing, and reach, with the completed pose translated to the grip and owner line-of-sight replaced by grip-to-target.
 - Pickaxes, axes, and hammers. Tool tile effects and tool melee damage are deliberately separate systems: the tool always swings at the cursor, while mining/chopping/hammering is authorized from a reachable operation point within the item's normal tile interaction range.
 - Tile and wall placement.

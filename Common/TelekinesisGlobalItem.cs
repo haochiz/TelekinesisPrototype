@@ -9,6 +9,8 @@ public sealed class TelekinesisGlobalItem : GlobalItem
 {
     private const int TelekineticPickupRangePixels = 60 * 16;
 
+    private const float MaxLaunchOffset = 128f;
+
     public override void GrabRange(Item item, Player player, ref int grabRange)
     {
         if (player.whoAmI == Main.myPlayer && Main.netMode == Terraria.ID.NetmodeID.SinglePlayer)
@@ -26,6 +28,17 @@ public sealed class TelekinesisGlobalItem : GlobalItem
 
         Vector2 offset = tk.GripPosition - player.MountedCenter;
         player.itemLocation += offset;
+
+        // A remote gun's bullets leave the grip toward its auto-target rather than along the
+        // player's cursor line, so rotate the visible weapon to match where it actually shoots.
+        if (TelekinesisItemRules.IsBulletGun(item)) {
+            NPC gunTarget = TelekinesisTargeting.FindNearestEnemy(tk.GripPosition);
+            if (gunTarget != null) {
+                Vector2 gunAim = gunTarget.Center - tk.GripPosition;
+                if (gunAim.LengthSquared() > 0.001f)
+                    player.itemRotation = MathF.Atan2(gunAim.Y * player.direction, gunAim.X * player.direction);
+            }
+        }
     }
 
     public override void UseItemHitbox(Item item, Player player, ref Rectangle hitbox, ref bool noHitbox)
@@ -112,10 +125,13 @@ public sealed class TelekinesisGlobalItem : GlobalItem
 
         bool remoteShortsword = TelekinesisItemRules.IsStandardShortsword(item);
         bool remoteSpear = TelekinesisItemRules.IsSpearLike(item);
+        bool remoteHeldProjectileSword = TelekinesisItemRules.IsHeldProjectileSword(item);
+        bool remoteGun = TelekinesisItemRules.IsBulletGun(item);
         bool remoteProjectileMelee = TelekinesisItemRules.IsBasicMelee(item) &&
                                      item.shoot > Terraria.ID.ProjectileID.None &&
                                      !remoteShortsword;
-        if (!remoteShortsword && !remoteSpear && !remoteProjectileMelee)
+        if (!remoteShortsword && !remoteSpear && !remoteProjectileMelee &&
+            !remoteHeldProjectileSword && !remoteGun)
             return;
 
         TelekinesisPlayer tk = player.GetModPlayer<TelekinesisPlayer>();
@@ -136,17 +152,46 @@ public sealed class TelekinesisGlobalItem : GlobalItem
             return;
         }
 
+        // Held-projectile swords and guns are both launched from the grip and auto-aimed at the
+        // nearest visible enemy, falling back to the vanilla cursor direction when there is none.
+        if (remoteHeldProjectileSword || remoteGun) {
+            position = tk.GripPosition;
+
+            float targetRange = remoteHeldProjectileSword ? TelekinesisTargeting.HeldProjectileSwordRange : -1f;
+            NPC autoTarget = TelekinesisTargeting.FindNearestEnemy(tk.GripPosition, targetRange);
+            if (autoTarget == null)
+                return;
+
+            Vector2 autoAim = autoTarget.Center - tk.GripPosition;
+            Vector2 cursorAim = Main.MouseWorld - player.MountedCenter;
+            if (autoAim.LengthSquared() <= 0.001f)
+                return;
+
+            // Rotating rather than replacing velocity preserves vanilla projectile speed and any
+            // intentional spread or multishot angular offset.
+            if (cursorAim.LengthSquared() <= 0.001f) {
+                autoAim.Normalize();
+                velocity = autoAim * velocity.Length();
+                return;
+            }
+
+            velocity = velocity.RotatedBy(autoAim.ToRotation() - cursorAim.ToRotation());
+            return;
+        }
+
         // Projectile-emitting direct-melee weapons are only relocated/auto-aimed when their
         // vanilla projectile is actually a conventional shot launched from near the player in the
         // cursor direction. This deliberately leaves unusual spawn patterns (for example projectiles
         // created far from the player) alone so they can be handled separately if encountered.
-        if (!IsCursorAimedPlayerLaunchedProjectile(player, position, velocity))
+        if (!IsCursorAimedPlayerLaunchedProjectile(player, position, velocity)) {
+            RetargetCursorPointProjectile(player, tk, ref position, velocity);
             return;
+        }
 
         Vector2 vanillaAim = Main.MouseWorld - player.MountedCenter;
         position = tk.GripPosition;
 
-        NPC target = FindNearestVisibleEnemyFromGrip(tk.GripPosition);
+        NPC target = TelekinesisTargeting.FindNearestEnemy(tk.GripPosition);
         if (target == null || vanillaAim.LengthSquared() <= 0.001f)
             return;
 
@@ -162,7 +207,6 @@ public sealed class TelekinesisGlobalItem : GlobalItem
 
     private static bool IsCursorAimedPlayerLaunchedProjectile(Player player, Vector2 position, Vector2 velocity)
     {
-        const float MaxLaunchOffset = 128f;
         const float MinimumAimAlignment = 0.75f;
 
         if (velocity.LengthSquared() <= 0.001f ||
@@ -178,42 +222,35 @@ public sealed class TelekinesisGlobalItem : GlobalItem
         return Vector2.Dot(shotDirection, cursorDirection) >= MinimumAimAlignment;
     }
 
-    private static NPC FindNearestVisibleEnemyFromGrip(Vector2 gripPosition)
+    // Starfury-style weapons do not shoot a line out of the player: vanilla spawns the star far
+    // away (above the cursor) with a velocity that converges on the cursor point itself. Shifting
+    // the whole spawn by cursor -> target keeps vanilla's fall angle, speed and per-star spread and
+    // simply lands the shot on the enemy instead of on the cursor.
+    private static void RetargetCursorPointProjectile(Player player, TelekinesisPlayer tk, ref Vector2 position, Vector2 velocity)
     {
-        NPC bestTarget = null;
-        float bestDistanceSquared = float.MaxValue;
+        if (!IsCursorConvergingRemoteSpawn(player, position, velocity))
+            return;
 
-        Rectangle visibleWorld = new Rectangle(
-            (int)Main.screenPosition.X,
-            (int)Main.screenPosition.Y,
-            Main.screenWidth,
-            Main.screenHeight
-        );
+        // Falling stars pass through terrain, so grip line of sight is deliberately not required.
+        NPC pointTarget = TelekinesisTargeting.FindNearestEnemy(tk.GripPosition, requireLineOfSight: false);
+        if (pointTarget == null)
+            return;
 
-        Vector2 gripCheckPosition = gripPosition - new Vector2(2f, 2f);
-        for (int i = 0; i < Main.maxNPCs; i++) {
-            NPC npc = Main.npc[i];
-            if (!npc.active || npc.friendly || npc.life <= 0 || npc.dontTakeDamage ||
-                !visibleWorld.Intersects(npc.Hitbox))
-                continue;
+        position += pointTarget.Center - Main.MouseWorld;
+    }
 
-            if (!Collision.CanHit(
-                    gripCheckPosition,
-                    4,
-                    4,
-                    npc.position,
-                    npc.width,
-                    npc.height))
-                continue;
+    private static bool IsCursorConvergingRemoteSpawn(Player player, Vector2 position, Vector2 velocity)
+    {
+        const float MinimumConvergenceAlignment = 0.85f;
 
-            float distanceSquared = Vector2.DistanceSquared(gripPosition, npc.Center);
-            if (distanceSquared >= bestDistanceSquared)
-                continue;
+        if (velocity.LengthSquared() <= 0.001f ||
+            Vector2.DistanceSquared(position, player.MountedCenter) <= MaxLaunchOffset * MaxLaunchOffset)
+            return false;
 
-            bestDistanceSquared = distanceSquared;
-            bestTarget = npc;
-        }
+        Vector2 spawnToCursor = Main.MouseWorld - position;
+        if (spawnToCursor.LengthSquared() <= 0.001f)
+            return false;
 
-        return bestTarget;
+        return Vector2.Dot(Vector2.Normalize(velocity), Vector2.Normalize(spawnToCursor)) >= MinimumConvergenceAlignment;
     }
 }

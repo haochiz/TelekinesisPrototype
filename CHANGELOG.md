@@ -168,3 +168,10 @@ When a normal vanilla Bomb or Grenade is thrown while `TK REMOTE` is ON, keep it
 - Grip path smoothing now scans forward from the current waypoint instead of backward from the end of the path, reducing it from one full visibility pass per kept segment to a single pass overall.
 - Long paths around corners no longer cost thousands of line-of-sight checks each time the cursor moves to a new tile.
 - Forward scanning stops at the first blocked waypoint rather than jumping to a later visible one, so a smoothed path may keep a few more waypoints than before. Grip routes and all reachability rules are otherwise unchanged.
+
+## v0.1.15 additions
+
+- Remote Terragrim/Arkhalis support. Vanilla held-projectile AI is left intact and its finished pose is translated to the grip, with grip-anchored wall blocking and knockback. Aim auto-targets the nearest enemy within 25 tiles of the grip and falls back to the cursor direction.
+- Starfury/Star Wrath stars now land on the nearest visible enemy instead of the cursor. The entire vanilla spawn is offset by cursor-to-target, preserving fall angle, speed, and per-star spread. No target means vanilla cursor behavior. Line-of-sight is not required, since vanilla stars fall through blocks.
+- Remote bullet guns: fired from the grip, auto-aimed at the nearest visible enemy, with the held weapon rotated to match the shot. Bows, magic weapons, and non-bullet guns remain vanilla.
+- Auto-target selection is now one shared helper used by every remote weapon that auto-aims.

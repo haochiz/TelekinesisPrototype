@@ -45,11 +45,36 @@ internal static class TelekinesisItemRules
                item.useStyle == ItemUseStyleID.Thrust;
     }
 
+    // Terragrim/Arkhalis are held-projectile weapons: the item itself is invisible and all damage
+    // comes from one persistent projectile that vanilla keeps anchored to the player. Their shared
+    // aiStyle (HeldProjectile) is also used by guns and several unrelated weapons, so this family is
+    // matched by projectile type rather than by aiStyle.
+    public static bool IsHeldProjectileSword(Item item)
+    {
+        if (item.IsAir || item.damage <= 0 || !item.CountsAsClass(DamageClass.Melee))
+            return false;
+
+        return item.shoot == ProjectileID.Terragrim || item.shoot == ProjectileID.Arkhalis;
+    }
+
+    // Bullet ammo is what separates guns from bows and launchers. A telekinetic grip is a stable
+    // firing platform for a gun, while drawing a bow remotely is deliberately out of scope.
+    public static bool IsBulletGun(Item item)
+    {
+        return !item.IsAir &&
+               item.damage > 0 &&
+               item.CountsAsClass(DamageClass.Ranged) &&
+               item.useAmmo == AmmoID.Bullet &&
+               item.shoot > ProjectileID.None;
+    }
+
     public static bool IsTool(Item item) => item.pick > 0 || item.axe > 0 || item.hammer > 0;
 
     public static bool IsPlaceable(Item item) => item.createTile >= 0 || item.createWall >= 0;
 
-    public static bool IsRemoteEligible(Item item) => IsBasicMelee(item) || IsSpearLike(item) || IsTool(item) || IsPlaceable(item);
+    public static bool IsRemoteEligible(Item item) =>
+        IsBasicMelee(item) || IsSpearLike(item) || IsHeldProjectileSword(item) ||
+        IsBulletGun(item) || IsTool(item) || IsPlaceable(item);
 
     public static bool HasToolTileTarget(Item item)
     {
@@ -89,7 +114,8 @@ internal static class TelekinesisItemRules
     {
         // Weapons and tools always use the cursor as their visible/melee pivot. Tool effects are
         // authorized separately against Player.tileTargetX/Y and do not reposition the melee hitbox.
-        if (IsBasicMelee(item) || IsSpearLike(item) || IsTool(item))
+        if (IsBasicMelee(item) || IsSpearLike(item) || IsHeldProjectileSword(item) ||
+            IsBulletGun(item) || IsTool(item))
             return Main.MouseWorld;
 
         if (IsPlaceable(item)) {

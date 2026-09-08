@@ -17,6 +17,15 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
     private Vector2 _stabDirection;
     private int _knockbackDirection;
 
+    private bool _remoteHeldProjectileSword;
+
+    // The aim spoof below is a single-AI-call global edit, so its saved state is static rather than
+    // per-projectile.
+    private static bool _aimCursorSpoofed;
+    private static int _savedMouseX;
+    private static int _savedMouseY;
+    private const float HeldProjectileSwordAimDistance = 100f;
+
     private bool _remoteSteerableExplosive;
     private bool _remoteExplosiveSteeringEnded;
     private const float RemoteExplosiveSpeed = 10f;
@@ -45,6 +54,24 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
 
     public override void PostAI(Projectile projectile)
     {
+        RestoreSpoofedAimCursor();
+
+        if (_remoteHeldProjectileSword && projectile.owner == Main.myPlayer) {
+            Player swordOwner = Main.player[projectile.owner];
+            TelekinesisPlayer swordTk = swordOwner.GetModPlayer<TelekinesisPlayer>();
+
+            if (swordTk.IsRemoteItemBeingUsed && TelekinesisItemRules.IsHeldProjectileSword(swordOwner.HeldItem)) {
+                // Vanilla held-projectile AI keeps the blade anchored to the physical player and
+                // spins it there. Translating the finished pose to the grip preserves the vanilla
+                // animation, timing and reach while moving the whole weapon to the remote hand.
+                projectile.position += swordTk.GripPosition - swordOwner.MountedCenter;
+
+                // Vanilla ownerHitCheck is player-relative. Wall blocking for the remote blade is
+                // enforced from the grip in CanHitNPC below instead.
+                projectile.ownerHitCheck = false;
+            }
+        }
+
         if (_remoteSpear && projectile.owner == Main.myPlayer) {
             Player player = Main.player[projectile.owner];
             TelekinesisPlayer tk = player.GetModPlayer<TelekinesisPlayer>();
@@ -96,11 +123,30 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
 
     public override bool PreAI(Projectile projectile)
     {
+        // A spoofed aim cursor must never outlive the single AI call it was made for, even if the
+        // projectile that set it was killed before its PostAI ran.
+        RestoreSpoofedAimCursor();
+
         if (projectile.owner != Main.myPlayer)
             return true;
 
         Player player = Main.player[projectile.owner];
         TelekinesisPlayer tk = player.GetModPlayer<TelekinesisPlayer>();
+
+        if (projectile.aiStyle == ProjAIStyleID.HeldProjectile) {
+            if (!_remoteHeldProjectileSword) {
+                if (!tk.IsRemoteItemBeingUsed || !TelekinesisItemRules.IsHeldProjectileSword(player.HeldItem))
+                    return true;
+
+                _remoteHeldProjectileSword = true;
+            }
+
+            if (tk.IsRemoteItemBeingUsed && TelekinesisItemRules.IsHeldProjectileSword(player.HeldItem))
+                SpoofAimCursorForRemoteHeldProjectile(player, tk);
+
+            // Vanilla held-projectile AI runs normally; PostAI only moves the finished pose.
+            return true;
+        }
 
         if (projectile.aiStyle == ProjAIStyleID.Spear) {
             if (!_remoteSpear && tk.IsRemoteItemBeingUsed && TelekinesisItemRules.IsSpearLike(player.HeldItem))
@@ -157,7 +203,7 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
 
     public override bool? CanHitNPC(Projectile projectile, NPC target)
     {
-        if (!_remoteSpear || projectile.owner != Main.myPlayer)
+        if ((!_remoteSpear && !_remoteHeldProjectileSword) || projectile.owner != Main.myPlayer)
             return null;
 
         Player player = Main.player[projectile.owner];
@@ -185,7 +231,7 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
     }
     public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
     {
-        if (!_remoteShortsword)
+        if (!_remoteShortsword && !_remoteHeldProjectileSword)
             return;
 
         int direction = _knockbackDirection;
@@ -203,6 +249,45 @@ public sealed class TelekinesisGlobalProjectile : GlobalProjectile
         // The prototype draws the real inventory shortsword at the telekinetic grip so that the
         // visible blade follows the same thrust animation as the relocated damage projectile.
         return !_remoteShortsword;
+    }
+
+    // Vanilla held-projectile AI re-derives its pose from the cursor, so remote auto-aim cannot be
+    // applied by editing velocity: the AI would overwrite it. Instead the cursor that the AI reads
+    // is moved for exactly one AI call, so vanilla itself produces the desired aim.
+    private static void SpoofAimCursorForRemoteHeldProjectile(Player player, TelekinesisPlayer tk)
+    {
+        NPC target = TelekinesisTargeting.FindNearestEnemy(tk.GripPosition, TelekinesisTargeting.HeldProjectileSwordRange);
+        if (target == null)
+            return;
+
+        Vector2 aim = target.Center - tk.GripPosition;
+        if (aim.LengthSquared() <= 0.001f)
+            return;
+
+        aim.Normalize();
+
+        // The AI aims out from the physical player and PostAI then translates the result to the
+        // grip, so the spoofed cursor has to sit along the desired direction from the player.
+        Vector2 desiredCursorWorld = player.MountedCenter + aim * HeldProjectileSwordAimDistance;
+        Vector2 worldDelta = desiredCursorWorld - Main.MouseWorld;
+        Vector2 zoom = Main.GameViewMatrix.Zoom;
+
+        _savedMouseX = Main.mouseX;
+        _savedMouseY = Main.mouseY;
+        _aimCursorSpoofed = true;
+
+        Main.mouseX += (int)(worldDelta.X * zoom.X);
+        Main.mouseY += (int)(worldDelta.Y * zoom.Y);
+    }
+
+    public static void RestoreSpoofedAimCursor()
+    {
+        if (!_aimCursorSpoofed)
+            return;
+
+        Main.mouseX = _savedMouseX;
+        Main.mouseY = _savedMouseY;
+        _aimCursorSpoofed = false;
     }
 
     private static Vector2 MoveVelocityTowards(Vector2 current, Vector2 target, float maxDelta)

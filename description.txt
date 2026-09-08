@@ -8,6 +8,9 @@ Prototype scope:
 - Remote shortswords, spears, and lances
 - Projectile-emitting melee (Ice Blade, Enchanted Sword) fires from the grip and auto-aims
   at the nearest visible enemy
+- Remote Terragrim, held at the grip and auto-aimed at nearby enemies
+- Sky-strike melee (Starfury, Star Wrath) lands its stars on the nearest visible enemy
+- Remote bullet guns, fired from the grip and auto-aimed at the nearest visible enemy
 - Remote pickaxes, axes, and hammers; tile effects are independent from melee collision
 - Remote tile/wall placement
 - Remote operation based on connected open space inside the visible screen area
@@ -21,6 +24,7 @@ Prototype scope:
 Intentionally not included:
 - Yoyos, boomerangs, flails
 - Drills and chainsaws
-- Terragrim and other unusual special swords
+- Other unusual special swords (Solar Eruption, Piercing Starlight)
+- Bows, magic weapons, and non-bullet guns
 - Launcher ammunition as steerable explosives
 - Multiplayer synchronization

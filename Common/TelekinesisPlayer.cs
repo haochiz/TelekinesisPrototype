@@ -102,6 +102,10 @@ public sealed class TelekinesisPlayer : ModPlayer
 
     public override bool PreItemCheck()
     {
+        // Remote held-projectile aiming temporarily moves the cursor the vanilla projectile AI
+        // reads. Player item use must never observe that spoofed cursor.
+        TelekinesisGlobalProjectile.RestoreSpoofedAimCursor();
+
         if (Player.whoAmI != Main.myPlayer || Main.netMode != NetmodeID.SinglePlayer)
             return true;
 
