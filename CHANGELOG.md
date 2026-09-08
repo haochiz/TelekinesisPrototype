@@ -184,5 +184,7 @@ While `TK REMOTE` is ON, chests and dressers can be opened and used at telekinet
 
 An open chest stays open as long as its own tile remains telekinetically in range, so the cursor is free to move around the inventory. Remote OFF restores fully vanilla container range. Piggy Bank/Safe-style item containers are unchanged.
 
+Opening is capped at 20 tiles because vanilla's interaction check clamps its own reach to 20 tiles regardless of tile range. Keeping a chest open is not clamped.
+
 Because vanilla evaluates all tile interactions against one shared range value, other right-click tiles (doors, levers, signs) are also reachable during the same window.
 

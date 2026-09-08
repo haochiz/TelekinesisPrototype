@@ -238,11 +238,22 @@ public sealed class TelekinesisPlayer : ModPlayer
             Player.controlUseItem = _savedControlUse;
             _restoreControlUse = false;
         }
+    }
 
+    // Chest range. Vanilla gates both opening a chest and keeping it open on Player.tileRangeX/Y,
+    // so telekinetic chest reach is expressed the same way tool reach already is: the chest counts
+    // as in range when some reachable grip position exists within normal tile range of it.
+    //
+    // Player.Update runs PostUpdateRunSpeeds, then LookForTileInteractions (which opens a chest and
+    // re-checks the open one), then PreUpdateMovement, and only after that item use. Opening the
+    // inflated range here and closing it in PreUpdateMovement therefore brackets exactly the
+    // vanilla tile interaction pass and leaves item use reading the real range.
+    public override void PostUpdateRunSpeeds()
+    {
         UpdateTelekineticChestRange();
     }
 
-    public override void PostUpdate()
+    public override void PreUpdateMovement()
     {
         if (_restoreChestTileRange) {
             Player.tileRangeX = _savedChestTileRangeX;
@@ -251,11 +262,6 @@ public sealed class TelekinesisPlayer : ModPlayer
         }
     }
 
-    // Chest range. Vanilla gates both opening a chest and keeping it open on Player.tileRangeX/Y,
-    // so telekinetic chest reach is expressed the same way tool reach already is: the chest counts
-    // as in range when some reachable grip position exists within normal tile range of it. The
-    // inflated range is opened here, after item use has finished reading the real range, and closed
-    // again in PostUpdate, so only vanilla's tile-interaction pass inside Player.Update sees it.
     private void UpdateTelekineticChestRange()
     {
         if (Player.whoAmI != Main.myPlayer || Main.netMode != NetmodeID.SinglePlayer)

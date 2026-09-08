@@ -95,6 +95,8 @@ Wiring tools, paint tools, and buckets keep their vanilla player-relative range.
 
 Chests and dressers are opened and used at telekinetic range rather than vanilla arm's length, using the same authorization as tools: some reachable grip position must exist within the item's normal tile interaction range of the container. An open chest stays open while its own tile remains telekinetically in range, so the cursor can move freely over the inventory. Piggy Bank/Safe-style item containers keep vanilla behavior.
 
+Opening is currently capped at **20 tiles**. Vanilla's own interaction check clamps its reach to 20 tiles regardless of the player's tile range, so that is the limit reachable without patching vanilla code. Keeping an already-open chest open has no such clamp and follows telekinetic reach fully.
+
 Vanilla evaluates every tile interaction against one shared range value, so other right-click tiles such as doors, levers, and signs share this reach while a container is authorized.
 
 ### Explosives
