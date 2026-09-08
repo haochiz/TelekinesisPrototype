@@ -175,3 +175,14 @@ When a normal vanilla Bomb or Grenade is thrown while `TK REMOTE` is ON, keep it
 - Starfury/Star Wrath stars now land on the nearest visible enemy instead of the cursor. The entire vanilla spawn is offset by cursor-to-target, preserving fall angle, speed, and per-star spread. No target means vanilla cursor behavior. Line-of-sight is not required, since vanilla stars fall through blocks.
 - Remote bullet guns: fired from the grip, auto-aimed at the nearest visible enemy, with the held weapon rotated to match the shot. Bows, magic weapons, and non-bullet guns remain vanilla.
 - Auto-target selection is now one shared helper used by every remote weapon that auto-aims.
+
+## v0.1.16 additions
+
+### Telekinetic chest range
+
+While `TK REMOTE` is ON, chests and dressers can be opened and used at telekinetic range instead of vanilla arm's length. A container counts as in range when a reachable grip position exists within the player's normal tile interaction range of it, which is the same rule tools and placement already use: connected open space within the visible screen area.
+
+An open chest stays open as long as its own tile remains telekinetically in range, so the cursor is free to move around the inventory. Remote OFF restores fully vanilla container range. Piggy Bank/Safe-style item containers are unchanged.
+
+Because vanilla evaluates all tile interactions against one shared range value, other right-click tiles (doors, levers, signs) are also reachable during the same window.
+

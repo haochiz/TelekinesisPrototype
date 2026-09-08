@@ -65,6 +65,10 @@ public sealed class TelekinesisPlayer : ModPlayer
     private int _savedTileRangeX;
     private int _savedTileRangeY;
 
+    private bool _restoreChestTileRange;
+    private int _savedChestTileRangeX;
+    private int _savedChestTileRangeY;
+
     // Vanilla's direct-melee pipeline performs one final tile-visibility check from the physical
     // player even after a custom melee collision hook accepts the target. Remote broadswords
     // temporarily suppress that one check only after our grip-based collision/LOS has succeeded.
@@ -234,6 +238,77 @@ public sealed class TelekinesisPlayer : ModPlayer
             Player.controlUseItem = _savedControlUse;
             _restoreControlUse = false;
         }
+
+        UpdateTelekineticChestRange();
+    }
+
+    public override void PostUpdate()
+    {
+        if (_restoreChestTileRange) {
+            Player.tileRangeX = _savedChestTileRangeX;
+            Player.tileRangeY = _savedChestTileRangeY;
+            _restoreChestTileRange = false;
+        }
+    }
+
+    // Chest range. Vanilla gates both opening a chest and keeping it open on Player.tileRangeX/Y,
+    // so telekinetic chest reach is expressed the same way tool reach already is: the chest counts
+    // as in range when some reachable grip position exists within normal tile range of it. The
+    // inflated range is opened here, after item use has finished reading the real range, and closed
+    // again in PostUpdate, so only vanilla's tile-interaction pass inside Player.Update sees it.
+    private void UpdateTelekineticChestRange()
+    {
+        if (Player.whoAmI != Main.myPlayer || Main.netMode != NetmodeID.SinglePlayer)
+            return;
+
+        if (!RemoteControlEnabled || !IsTelekineticChestTargetAuthorized())
+            return;
+
+        _savedChestTileRangeX = Player.tileRangeX;
+        _savedChestTileRangeY = Player.tileRangeY;
+        _restoreChestTileRange = true;
+
+        Player.tileRangeX = ArtificialTileRange;
+        Player.tileRangeY = ArtificialTileRange;
+    }
+
+    private bool IsTelekineticChestTargetAuthorized()
+    {
+        _reachability.EnsureCurrent(Player);
+
+        // An already-open world chest has to stay authorized from its own tile. Vanilla re-checks
+        // range every tick and closes the chest the moment it fails, so authorizing only the
+        // hovered tile would close the chest as soon as the cursor moved off it. Bank containers
+        // (Player.chest < -1) are item-based and are left entirely to vanilla.
+        if (Player.chest >= 0 && IsTileTelekineticallyInRange(Player.chestX, Player.chestY))
+            return true;
+
+        return IsChestTile(Player.tileTargetX, Player.tileTargetY) &&
+               IsTileTelekineticallyInRange(Player.tileTargetX, Player.tileTargetY);
+    }
+
+    private bool IsTileTelekineticallyInRange(int tileX, int tileY)
+    {
+        return _reachability.TryFindGripForTileInteraction(
+            tileX,
+            tileY,
+            Player.tileRangeX,
+            Player.tileRangeY,
+            Main.MouseWorld,
+            out _
+        );
+    }
+
+    private static bool IsChestTile(int tileX, int tileY)
+    {
+        if (!WorldGen.InWorld(tileX, tileY, 1))
+            return false;
+
+        Tile tile = Framing.GetTileSafely(tileX, tileY);
+        if (!tile.HasTile)
+            return false;
+
+        return TileID.Sets.BasicChest[tile.TileType] || TileID.Sets.BasicDresser[tile.TileType];
     }
 
     public bool ShouldRelocateHeldItem(Item item)

@@ -91,6 +91,12 @@ Telekinetic reachability is **connected open space within the visible screen are
 
 Wiring tools, paint tools, and buckets keep their vanilla player-relative range.
 
+### Containers
+
+Chests and dressers are opened and used at telekinetic range rather than vanilla arm's length, using the same authorization as tools: some reachable grip position must exist within the item's normal tile interaction range of the container. An open chest stays open while its own tile remains telekinetically in range, so the cursor can move freely over the inventory. Piggy Bank/Safe-style item containers keep vanilla behavior.
+
+Vanilla evaluates every tile interaction against one shared range value, so other right-click tiles such as doors, levers, and signs share this reach while a container is authorized.
+
 ### Explosives
 
 While remote control is ON, thrown consumable explosives can be steered toward the cursor for as long as the left-click hold that threw them is maintained. Releasing left click permanently returns that projectile to vanilla ballistic motion. Only velocity is modified; fuse and explosion timing remain vanilla. Launcher ammunition such as rockets is not steered.
