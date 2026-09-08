@@ -253,10 +253,15 @@ internal sealed class TelekineticReachability
         List<Vector2> smooth = new() { raw[0] };
         int index = 0;
 
+        // Keep extending the current segment while the waypoint after it is still in line of
+        // sight, and stop at the first one that is not. Scanning forward costs one visibility
+        // test per waypoint dropped, so the whole path costs a single pass. Scanning backward
+        // from the far end instead cost up to one full pass per kept segment, which made a long
+        // path around a corner quadratic.
         while (index < raw.Count - 1) {
-            int next = raw.Count - 1;
-            while (next > index + 1 && !Collision.CanHitLine(raw[index], 1, 1, raw[next], 1, 1))
-                next--;
+            int next = index + 1;
+            while (next + 1 < raw.Count && Collision.CanHitLine(raw[index], 1, 1, raw[next + 1], 1, 1))
+                next++;
 
             smooth.Add(raw[next]);
             index = next;

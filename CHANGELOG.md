@@ -162,3 +162,9 @@ When a normal vanilla Bomb or Grenade is thrown while `TK REMOTE` is ON, keep it
 - Reachability rebuilds no longer re-probe the same solid tile once per adjacent open tile. Each tile's solidity is now tested at most once per rebuild.
 - The flood-fill queue is reused instead of being allocated on every rebuild.
 - No gameplay change: the reachable region, the visible-screen boundary, and rebuild frequency are all unchanged.
+
+## v0.1.14.15 optimization
+
+- Grip path smoothing now scans forward from the current waypoint instead of backward from the end of the path, reducing it from one full visibility pass per kept segment to a single pass overall.
+- Long paths around corners no longer cost thousands of line-of-sight checks each time the cursor moves to a new tile.
+- Forward scanning stops at the first blocked waypoint rather than jumping to a later visible one, so a smoothed path may keep a few more waypoints than before. Grip routes and all reachability rules are otherwise unchanged.
